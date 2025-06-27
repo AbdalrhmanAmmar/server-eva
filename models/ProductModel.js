@@ -8,12 +8,25 @@ const productSchema = new mongoose.Schema({
   description: {
     type: String,
   },
-  price: {
+  priceBeforeDiscount: {
     type: Number,
-    required: [true, "Product price is required"],
+    required: false,  // اختياري
+  },
+  priceAfterDiscount: {
+    type: Number,
+    required: [true, "Price after discount is required"],  // مطلوب
+  },
+  quantity: {
+    type: Number,
+    default: 0,
+  },
+  points: {
+    type: Number,
+    default: 0,
   },
   image: {
-    type: String, // رابط الصورة أو اسم الملف
+    type: String,
+    required: false,
   },
   category: {
     type: String,
@@ -21,7 +34,7 @@ const productSchema = new mongoose.Schema({
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
-    required: true, // لازم يكون admin
+    required: true,
   },
   createdAt: {
     type: Date,

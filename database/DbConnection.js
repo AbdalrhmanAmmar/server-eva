@@ -1,15 +1,16 @@
 import mongoose from "mongoose";
 
-export const connection = () => {
-  mongoose
-    .connect(process.env.MONGO_URI, {
+export const connection = async () => {
+  try {
+    await mongoose.connect(process.env.MONGO_URI, {
       dbName: "Eva-state",
-      serverSelectionTimeoutMS: 30000, // ← زيادة المهلة إلى 30 ثانية
-    })
-    .then(() => {
-      console.log("✅ Connected to database.");
-    })
-    .catch((err) => {
-      console.log(`❌ Error connecting to database: ${err.message}`);
+      serverSelectionTimeoutMS: 30000,
     });
+    // تحقق من الاتصال عبر ping
+    await mongoose.connection.db.admin().ping();
+    console.log("✅ Connected to MongoDB and connection is healthy");
+  } catch (error) {
+    console.error("❌ Error connecting to MongoDB:", error.message);
+    process.exit(1); // إيقاف السيرفر إذا لم يتصل
+  }
 };

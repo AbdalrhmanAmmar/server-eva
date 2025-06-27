@@ -60,26 +60,25 @@ userSchema.methods.generateVerificationCode = function () {
   const otp = parseInt(firstDigit + remainingDigits);
 
   this.verificationCode = otp;
-  this.verificationCodeExpire = Date.now() + 10 * 60 * 1000;
+  this.verificationCodeExpire = Date.now() + 5 * 60 * 1000;
 
   return otp;
 };
 
-// ✅ توليد رمز إعادة تعيين كلمة المرور (OTP رقمي)
 userSchema.methods.generateResetPasswordToken = function () {
-  const otp = Math.floor(100000 + Math.random() * 900000); // 6-digit OTP
+  const otp = Math.floor(100000 + Math.random() * 900000);
 
   this.resetPasswordToken = crypto
     .createHash("sha256")
     .update(otp.toString())
     .digest("hex");
 
-  this.resetPasswordExpire = Date.now() + 15 * 60 * 1000;
+  this.resetPasswordExpire = Date.now() + 5 * 60 * 1000;
 
   return otp;
 };
 
-// ✅ توليد JWT
+
 userSchema.methods.generateToken = function () {
   return jwt.sign({ id: this._id }, process.env.JWT_SECRET_KEY, {
     expiresIn: process.env.JWT_EXPIRE || "7d",

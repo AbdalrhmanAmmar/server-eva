@@ -1,12 +1,11 @@
 import mongoose from "mongoose";
 import dotenv from "dotenv";
+import bcrypt from "bcrypt";  // مهم لتشفير الباسورد
 import { User } from "./models/userModel.js";
 
-dotenv.config({ path: "./config.env" });  // تأكد هذه السطر موجودة
+dotenv.config({ path: "./config.env" });
 
 const createAdminUser = async () => {
-  console.log("MONGO_URI:", process.env.MONGO_URI); // تأكد أنه مش undefined
-
   try {
     await mongoose.connect(process.env.MONGO_URI);
 
@@ -16,11 +15,14 @@ const createAdminUser = async () => {
       process.exit(0);
     }
 
+    // تشفير الباسورد يدوياً
+    const hashedPassword = await bcrypt.hash("112233445566", 10);
+
     const adminUser = new User({
       name: "Admin User",
-      phone: "966577140912",
-      password: "123456789-@#$",
-      role: "admin",
+      phone: "966500000000",
+      password: hashedPassword,
+      role: "admin",  // تأكد انها موجودة هنا
       accountVerified: true,
     });
 

@@ -1,6 +1,8 @@
 import express from "express";
 import cookieParser from "cookie-parser";
 import { config } from "dotenv";
+import cors from "cors";
+
 import userRoutes from "./routes/userRoutes.js";
 import productRoutes from "./routes/productRoutes.js";
 import { errorMiddleware } from "./middleware/error.js";
@@ -9,6 +11,12 @@ config({ path: "./config.env" });
 
 
 export const app = express();
+
+app.use(cors({
+  origin: [process.env.FRONTEND_URL || "http://localhost:3000"],
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  credentials: true,
+}));
 
 
 connection();

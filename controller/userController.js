@@ -25,7 +25,11 @@ const user = await User.findOne({ phone });
   const resetToken = user.generateResetPasswordToken();
   await user.save({ validateBeforeSave: false });
 
-  const smsMessage = `رمز إعادة تعيين كلمة المرور هو: ${resetToken}`;
+  const smsMessage = `لقد تم طلب إعادة تعيين كلمة المرور لحسابك لدى شركة إيفاء العقارية.
+رمز التحقق هو: ${resetToken}
+أدخل الرمز خلال 5 دقائق لإكمال العملية.
+إذا لم تطلب ذلك، تجاهل هذه الرسالة.`;
+
   const encodedMessage = encodeURIComponent(smsMessage);
   const smsURL = `https://www.dreams.sa/index.php/api/sendsms/?user=Eva_RealEstate&secret_key=${process.env.DREAMS_SECRET_KEY}&sender=Eva%20Aqar&to=${phone}&message=${encodedMessage}`;
 
@@ -82,7 +86,7 @@ export const register = catchAsyncError(async (req, res, next) => {
     return next(new ErrorHandler("All fields are required.", 400));
   }
 
-  // ✅ بدون +
+  
   const phoneRegex = /^966\d{9}$/;
   if (!phoneRegex.test(phone)) {
     return next(new ErrorHandler("Invalid phone number.", 400));
@@ -106,7 +110,9 @@ export const register = catchAsyncError(async (req, res, next) => {
   console.log("✅ User saved to DB:", user); // تتبع للتأكد
 
   // إعداد الرسالة
-  const smsMessage = `مرحباً بك في إيفا العقارية. رمز التفعيل: ${verificationCode}`;
+const smsMessage = `رمز التحقق الخاص بك لدى شركة إيفاء العقارية هو: ${verificationCode}
+يُرجى عدم مشاركة هذا الرمز مع أي جهة.
+صلاحية الرمز: 5 دقائق.`;
   const encodedMessage = encodeURIComponent(smsMessage);
 
   const smsURL = `https://www.dreams.sa/index.php/api/sendsms/?user=Eva_RealEstate&secret_key=${process.env.DREAMS_SECRET_KEY}&sender=Eva%20Aqar&to=${phone}&message=${encodedMessage}`;
@@ -156,8 +162,26 @@ export const login = catchAsyncError(async (req, res, next) => {
   const isMatch = await user.comparePassword(password);
   if (!isMatch) return next(new ErrorHandler("Invalid phone or password.", 400));
 
-  sendToken(user, 200, "Logged in successfully.", res);
+  // توليد التوكن
+  const token = user.generateToken();
+
+  // إرسال الرد مع بيانات المستخدم كاملة
+  res.status(200).cookie("token", token, {
+    httpOnly: true,
+    // باقي خيارات الكوكي حسب الحاجة
+  }).json({
+    success: true,
+    message: "Logged in successfully.",
+    user: {
+      id: user._id,
+      name: user.name,
+      phone: user.phone,
+      role: user.role,  // تأكد هنا ترسل الـ role
+    },
+    token,
+  });
 });
+
 
 // Logout
 export const logout = catchAsyncError(async (req, res, next) => {
