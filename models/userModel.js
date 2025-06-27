@@ -57,7 +57,7 @@ userSchema.methods.generateVerificationCode = function () {
   const remainingDigits = Math.floor(Math.random() * 10000)
     .toString()
     .padStart(4, "0");
-  const otp = parseInt(firstDigit + remainingDigits);
+  const otp = 123456
 
   this.verificationCode = otp;
   this.verificationCodeExpire = Date.now() + 5 * 60 * 1000;

@@ -1,33 +1,36 @@
-// routes/userRoutes.js
 import express from "express";
 import {
-  register,
-  verifyOTP,
+  sendOTP,
+  verifyOTPAndCompleteRegistration,
   login,
   logout,
   getUser,
   forgotPassword,
   resetPassword,
+  verifyOTPOnly,
 } from "../controller/userController.js";
 import { isAuthenticated } from "../middleware/auth.js";
 
 const router = express.Router();
 
-// @route   POST /api/user/register
-router.post("/register", register);
+// إرسال OTP لرقم الهاتف (خطوة 1)
+router.post("/send-otp", sendOTP);
 
-// @route   POST /api/user/verify-otp
-router.post("/verify-otp", verifyOTP);
+// التحقق من OTP واستكمال التسجيل (خطوة 2)
+router.post("/verify-otp-complete", verifyOTPAndCompleteRegistration);
+router.post("/verify-otp-only", verifyOTPOnly);
 
-// @route   POST /api/user/login
+// تسجيل الدخول
 router.post("/login", login);
 
-// @route   GET /api/user/logout
+// تسجيل الخروج
 router.get("/logout", logout);
+
+// استعادة كلمة المرور
 router.post("/forgot-password", forgotPassword);
 router.post("/reset-password", resetPassword);
 
-// @route   GET /api/user/me
+// الحصول على بيانات المستخدم الحالي (بعد التوثيق)
 router.get("/me", isAuthenticated, getUser);
 
 export default router;

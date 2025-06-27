@@ -79,59 +79,123 @@ export const resetPassword = catchAsyncError(async (req, res, next) => {
 });
 
 // Register with SMS
-export const register = catchAsyncError(async (req, res, next) => {
-  const { name, phone, password } = req.body;
+export const sendOTP = catchAsyncError(async (req, res, next) => {
+  const { phone } = req.body;
+  if (!phone) return next(new ErrorHandler("Phone number is required.", 400));
 
-  if (!name || !phone || !password) {
-    return next(new ErrorHandler("All fields are required.", 400));
-  }
-
-  
   const phoneRegex = /^966\d{9}$/;
   if (!phoneRegex.test(phone)) {
     return next(new ErrorHandler("Invalid phone number.", 400));
   }
 
+  // تحقق هل الرقم مسجل ومفعل بالفعل
   const existingUser = await User.findOne({ phone, accountVerified: true });
   if (existingUser) {
-    return next(new ErrorHandler("Phone number already used.", 400));
+    return next(new ErrorHandler("Phone number already in use.", 400));
   }
 
-  const previousAttempts = await User.find({ phone, accountVerified: false });
-  if (previousAttempts.length >= 3) {
-    return next(new ErrorHandler("Too many attempts. Try again later.", 400));
+  // ابحث عن مستخدم غير مفعل بنفس الرقم (حاول إعادة الإرسال)
+  let user = await User.findOne({ phone, accountVerified: false });
+
+  if (!user) {
+    // إنشاء مستخدم جديد (بدون اسم وكلمة مرور بعد)
+    user = new User({ phone });
   }
 
-  // ✅ أنشئ المستخدم وأضف رمز التفعيل قبل الحفظ
-  const user = new User({ name, phone, password });
+  // توليد رمز تحقق جديد
   const verificationCode = user.generateVerificationCode();
-  await user.save();
+  await user.save({ validateBeforeSave: false });
 
-  console.log("✅ User saved to DB:", user); // تتبع للتأكد
-
-  // إعداد الرسالة
-const smsMessage = `رمز التحقق الخاص بك لدى شركة إيفاء العقارية هو: ${verificationCode}
+  // رسالة الـ SMS
+  const smsMessage = `رمز التحقق الخاص بك لدى شركة إيفاء العقارية هو: ${verificationCode}
 يُرجى عدم مشاركة هذا الرمز مع أي جهة.
 صلاحية الرمز: 5 دقائق.`;
-  const encodedMessage = encodeURIComponent(smsMessage);
 
+  const encodedMessage = encodeURIComponent(smsMessage);
   const smsURL = `https://www.dreams.sa/index.php/api/sendsms/?user=Eva_RealEstate&secret_key=${process.env.DREAMS_SECRET_KEY}&sender=Eva%20Aqar&to=${phone}&message=${encodedMessage}`;
 
   try {
     await axios.get(smsURL);
-    res.status(200).json({ success: true, message: `Verification SMS sent to ${phone}` });
+res.status(200).json({
+  success: true,
+  message: `Verification SMS sent to ${phone}`,
+  data: {
+    otpId: user._id.toString(),                  // معرف المستخدم كـ OTP ID
+    expiresAt: user.verificationCodeExpire,     // وقت انتهاء صلاحية رمز التحقق
+  },
+});
   } catch (err) {
     return next(new ErrorHandler("Failed to send verification SMS.", 500));
   }
 });
 
+// التحقق من OTP واستكمال التسجيل (خطوة 2)
+export const verifyOTPAndCompleteRegistration = catchAsyncError(async (req, res, next) => {
+  const { otpId, otp, name, password } = req.body;
 
-// Verify OTP
-export const verifyOTP = catchAsyncError(async (req, res, next) => {
-  const { otp, phone } = req.body;
+  // 1. التحقق من الحقول المطلوبة
+  if (!otpId || !otp || !name || !password) {
+    return next(new ErrorHandler("جميع الحقول مطلوبة", 400));
+  }
 
-  const user = await User.findOne({ phone, accountVerified: false }).sort({ createdAt: -1 });
-  if (!user) return next(new ErrorHandler("User not found or already verified.", 404));
+  // 2. جلب المستخدم مع إعادة تحميل جميع التوابع (مهم جداً)
+  const user = await User.findById(otpId).select("+password");
+  if (!user || user.accountVerified) {
+    return next(new ErrorHandler("المستخدم غير موجود أو مفعل مسبقاً", 404));
+  }
+
+  // 3. التحقق من صحة OTP
+  if (user.verificationCode !== Number(otp)) {
+    return next(new ErrorHandler("كود التحقق غير صحيح", 400));
+  }
+
+  if (Date.now() > user.verificationCodeExpire.getTime()) {
+    return next(new ErrorHandler("انتهت صلاحية كود التحقق", 400));
+  }
+
+  // 4. تحديث البيانات
+  user.name = name;
+  user.password = password; // سيتم تشفيرها تلقائياً بواسطة pre('save')
+  user.accountVerified = true;
+  user.verificationCode = undefined;
+  user.verificationCodeExpire = undefined;
+
+  // 5. الحفظ ثم إعادة التحميل (حل سحري)
+  await user.save({ validateBeforeSave: false });
+  const freshUser = await User.findById(user._id);
+
+  // 6. توليد التوكن من النسخة الجديدة
+  const token = freshUser.generateToken();
+
+  // 7. إرسال الاستجابة بدون كلمة المرور
+  freshUser.password = undefined;
+
+  res.status(200).json({
+    success: true,
+    message: "تم تفعيل الحساب بنجاح",
+    data: {
+      user: {
+        id: freshUser._id,
+        name: freshUser.name,
+        phone: freshUser.phone,
+        role: freshUser.role,
+      },
+      token,
+    },
+  });
+});
+
+export const verifyOTPOnly = catchAsyncError(async (req, res, next) => {
+  const { otpId, otp } = req.body;
+
+  if (!otpId || !otp) {
+    return next(new ErrorHandler("otpId and OTP are required.", 400));
+  }
+
+  const user = await User.findById(otpId);
+  if (!user || user.accountVerified) {
+    return next(new ErrorHandler("User not found or already verified.", 404));
+  }
 
   if (user.verificationCode !== Number(otp)) {
     return next(new ErrorHandler("Invalid OTP.", 400));
@@ -141,13 +205,15 @@ export const verifyOTP = catchAsyncError(async (req, res, next) => {
     return next(new ErrorHandler("OTP expired.", 400));
   }
 
-  user.accountVerified = true;
-  user.verificationCode = null;
-  user.verificationCodeExpire = null;
-  await user.save({ validateModifiedOnly: true });
-
-  sendToken(user, 200, "Account Verified.", res);
+  res.status(200).json({
+    success: true,
+    message: "OTP verified successfully",
+  });
 });
+
+
+
+
 
 // Login
 export const login = catchAsyncError(async (req, res, next) => {
