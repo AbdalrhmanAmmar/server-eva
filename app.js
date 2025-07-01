@@ -5,8 +5,13 @@ import cors from "cors";
 
 import userRoutes from "./routes/userRoutes.js";
 import productRoutes from "./routes/productRoutes.js";
+import pointsPackageRoutes from "./routes/pointsPackageRoutes.js";
+import reviewRoutes from "./routes/reviewRoutes.js";
+
 import { errorMiddleware } from "./middleware/error.js";
 import { connection } from "./database/DbConnection.js";
+import path from "path";
+
 config({ path: "./config.env" });
 
 
@@ -17,6 +22,8 @@ app.use(cors({
   methods: ["GET", "POST", "PUT", "DELETE"],
   credentials: true,
 }));
+
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 
 connection();
@@ -30,6 +37,9 @@ app.use(express.urlencoded({ extended: true }));
 // Routes
 app.use("/api/user", userRoutes);
 app.use("/api/products", productRoutes);
+app.use("/api/points", pointsPackageRoutes);
+app.use("/api/review", reviewRoutes);
+
 
 // Test Route
 app.get("/test", (req, res) => {

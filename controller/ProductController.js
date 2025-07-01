@@ -1,64 +1,157 @@
-import { Product } from "../models/productModel.js";
 import ErrorHandler from "../middleware/error.js";
 import { catchAsyncError } from "../middleware/catchAsyncError.js";
-
-// إنشاء منتج جديد - للادمن فقط
+import { Product } from "../models/ProductModel.js";
+import mongoose from "mongoose";
+/**
+ * @desc    Create a new product (Admin only)
+ * @route   POST /api/products
+ * @access  Private/Admin
+ */
 export const createProduct = catchAsyncError(async (req, res, next) => {
-  const { name, description, priceBeforeDiscount, priceAfterDiscount, quantity, points, category } = req.body;
-
-  if (!name || !priceAfterDiscount) {
-    return next(new ErrorHandler("Name and price after discount are required", 400));
-  }
-
-  // الصورة اسم الملف تم رفعه عبر multer (req.file)
-  if (!req.file) {
-    return next(new ErrorHandler("Product image is required", 400));
-  }
-
-  const product = new Product({
+  const {
     name,
     description,
     priceBeforeDiscount,
     priceAfterDiscount,
-    quantity: quantity || 0,
-    points: points || 0,
+    quantity,
     category,
-    image: req.file.filename,
-    createdBy: req.user._id, // من middleware isAuthenticated
-  });
+    tag,
+    shortDescription,
+    showQuantity = false,
+    showReviews = true,
+    showDiscount=false,
+  } = req.body;
 
-  await product.save();
+  // Validate required fields
+  if (!name || !priceBeforeDiscount) {
+    return next(new ErrorHandler("Product name and price are required", 400));
+  }
+
+  // Validate at least one image is uploaded
+  if (!req.files || req.files.length === 0) {
+    return next(new ErrorHandler("At least one product image is required", 400));
+  }
+
+  // Create product
+  const product = await Product.create({
+    name,
+    description,
+    priceBeforeDiscount,
+    priceAfterDiscount: priceAfterDiscount || priceBeforeDiscount,
+    quantity: quantity || 0,
+    category,
+    tag,
+    shortDescription,
+    showReviews,
+    showQuantity,
+    showDiscount,
+    images: req.files.map(file => file.filename),
+  });
 
   res.status(201).json({
     success: true,
+    message: "Product created successfully",
     product,
   });
 });
 
-// جلب جميع المنتجات (مفتوح للجميع)
+/**
+ * @desc    Get all products with filtering, sorting and pagination
+ * @route   GET /api/products
+ * @access  Public
+ */
 export const getAllProducts = catchAsyncError(async (req, res, next) => {
-  const products = await Product.find().populate("createdBy", "name phone role");
+  // Pagination
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+  const skip = (page - 1) * limit;
+
+  // Filtering
+  const filter = {};
+  if (req.query.category) filter.category = req.query.category;
+  if (req.query.tag) filter.tag = req.query.tag;
+  if (req.query.minPrice) filter.priceAfterDiscount = { $gte: Number(req.query.minPrice) };
+  if (req.query.maxPrice) filter.priceAfterDiscount = { ...filter.priceAfterDiscount, $lte: Number(req.query.maxPrice) };
+
+  // Sorting
+  const sort = {};
+  if (req.query.sortBy) {
+    const parts = req.query.sortBy.split(':');
+    sort[parts[0]] = parts[1] === 'desc' ? -1 : 1;
+  } else {
+    sort.createdAt = -1; // Default sort by newest
+  }
+
+  // Search
+  if (req.query.search) {
+    filter.$or = [
+      { name: { $regex: req.query.search, $options: 'i' } },
+      { description: { $regex: req.query.search, $options: 'i' } },
+      { shortDescription: { $regex: req.query.search, $options: 'i' } }
+    ];
+  }
+
+  const [products, total] = await Promise.all([
+    Product.find(filter)
+      .populate("createdBy", "name email")
+      .sort(sort)
+      .skip(skip)
+      .limit(limit),
+    Product.countDocuments(filter)
+  ]);
+
   res.status(200).json({
     success: true,
+    count: products.length,
+    total,
+    page,
+    pages: Math.ceil(total / limit),
     products,
   });
 });
 
-// جلب منتج محدد بالـ id
+/**
+ * @desc    Get single product by ID
+ * @route   GET /api/products/:id
+ * @access  Public
+ */
 export const getProductById = catchAsyncError(async (req, res, next) => {
-  const product = await Product.findById(req.params.id).populate("createdBy", "name phone role");
-
-  if (!product) {
-    return next(new ErrorHandler("Product not found", 404));
+  // 1. التحقق من صحة الـ ID
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return next(new ErrorHandler('معرف المنتج غير صالح', 400));
   }
 
+  // 2. البحث عن المنتج مع البيانات المرتبطة
+  const product = await Product.findById(req.params.id)
+    .populate("createdBy", "name email")
+
+    .lean(); // تحويل إلى object عادي
+
+  // 3. التحقق من وجود المنتج
+  if (!product) {
+    return next(new ErrorHandler("لم يتم العثور على المنتج", 404));
+  }
+
+  // 4. تحويل _id إلى id وإزالة الحقول غير الضرورية
+  const transformedProduct = {
+    ...product,
+    id: product._id.toString(),
+    _id: undefined,
+    __v: undefined
+  };
+
+  // 5. إرسال الاستجابة
   res.status(200).json({
     success: true,
-    product,
+    product: transformedProduct
   });
 });
 
-// تحديث منتج - للادمن فقط
+/**
+ * @desc    Update product (Admin only)
+ * @route   PUT /api/products/:id
+ * @access  Private/Admin
+ */
 export const updateProduct = catchAsyncError(async (req, res, next) => {
   const product = await Product.findById(req.params.id);
 
@@ -66,41 +159,46 @@ export const updateProduct = catchAsyncError(async (req, res, next) => {
     return next(new ErrorHandler("Product not found", 404));
   }
 
-  // تحقق إن المستخدم هو صاحب المنتج أو ادمن
-  if (product.createdBy.toString() !== req.user._id.toString() && req.user.role !== "admin") {
-    return next(new ErrorHandler("You are not authorized to update this product", 403));
-  }
-
-  const updates = [
+  // Update fields
+  const updatableFields = [
     "name",
     "description",
     "priceBeforeDiscount",
     "priceAfterDiscount",
     "quantity",
-    "points",
-   
+    "category",
+    "tag",
+    "shortDescription",
+    "showReviews",
+    "showQuantity",
+    "showDiscount"
   ];
 
-  updates.forEach(field => {
+  updatableFields.forEach(field => {
     if (req.body[field] !== undefined) {
       product[field] = req.body[field];
     }
   });
 
-  if (req.file) {
-    product.image = req.file.filename;
+  // Handle images update
+  if (req.files && req.files.length > 0) {
+    product.images = req.files.map(file => file.filename);
   }
 
   await product.save();
 
   res.status(200).json({
     success: true,
+    message: "Product updated successfully",
     product,
   });
 });
 
-
-// حذف منتج - للادمن فقط
+/**
+ * @desc    Delete product (Admin only)
+ * @route   DELETE /api/products/:id
+ * @access  Private/Admin
+ */
 export const deleteProduct = catchAsyncError(async (req, res, next) => {
   const product = await Product.findById(req.params.id);
 
@@ -113,5 +211,25 @@ export const deleteProduct = catchAsyncError(async (req, res, next) => {
   res.status(200).json({
     success: true,
     message: "Product deleted successfully",
+  });
+});
+
+/**
+ * @desc    Get products by category
+ * @route   GET /api/products/category/:category
+ * @access  Public
+ */
+export const getProductsByCategory = catchAsyncError(async (req, res, next) => {
+  const products = await Product.find({ category: req.params.category })
+    .populate("createdBy", "name");
+
+  if (!products || products.length === 0) {
+    return next(new ErrorHandler(`No products found in category ${req.params.category}`, 404));
+  }
+
+  res.status(200).json({
+    success: true,
+    count: products.length,
+    products,
   });
 });

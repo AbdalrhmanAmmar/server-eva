@@ -1,36 +1,41 @@
 import express from "express";
 import { isAuthenticated } from "../middleware/auth.js";
 import { upload } from "../middleware/upload.js";
-import { createProduct, updateProduct, deleteProduct, getAllProducts, getProductById } from "../controller/ProductController.js";
+import { 
+  createProduct, 
+  updateProduct, 
+  deleteProduct, 
+  getAllProducts, 
+  getProductById,
+  getProductsByCategory 
+} from "../controller/ProductController.js";
 import { isAdmin } from "../middleware/isAdmin.js";
 
 const router = express.Router();
 
+// Admin routes
 router.post(
   "/",
-  isAuthenticated,
-  isAdmin,
-  upload.single("image"),
+
+  upload.array("images", 3), 
   createProduct
 );
 
 router.put(
   "/:id",
-  isAuthenticated,
-  isAdmin,
-  upload.single("image"),
+  upload.array("images", 3), 
   updateProduct
 );
 
 router.delete(
   "/:id",
-  isAuthenticated,
-  isAdmin,
+
   deleteProduct
 );
 
-router.get("/", getAllProducts); // متاح للجميع أو حدد حسب الحاجة
+// Public routes
+router.get("/", getAllProducts);
+router.get("/category/:category", getProductsByCategory); // إضافة روت جديد للتصنيفات
 router.get("/:id", getProductById);
-
 
 export default router;
