@@ -2,11 +2,7 @@ import ErrorHandler from "../middleware/error.js";
 import { catchAsyncError } from "../middleware/catchAsyncError.js";
 import { Product } from "../models/ProductModel.js";
 import mongoose from "mongoose";
-/**
- * @desc    Create a new product (Admin only)
- * @route   POST /api/products
- * @access  Private/Admin
- */
+
 export const createProduct = catchAsyncError(async (req, res, next) => {
   const {
     name,
@@ -20,7 +16,9 @@ export const createProduct = catchAsyncError(async (req, res, next) => {
     showQuantity = false,
     showReviews = true,
     showDiscount=false,
+    showTag=false
   } = req.body;
+  const mainImageName = req.body.mainImageName;
 
   // Validate required fields
   if (!name || !priceBeforeDiscount) {
@@ -45,7 +43,12 @@ export const createProduct = catchAsyncError(async (req, res, next) => {
     showReviews,
     showQuantity,
     showDiscount,
-    images: req.files.map(file => file.filename),
+    showTag,
+    images: req.files.map(file => ({
+  url: file.filename,
+  isMain: file.filename === mainImageName, // فقط الصورة المطابقة تصبح رئيسية
+})),
+
   });
 
   res.status(201).json({
@@ -55,11 +58,7 @@ export const createProduct = catchAsyncError(async (req, res, next) => {
   });
 });
 
-/**
- * @desc    Get all products with filtering, sorting and pagination
- * @route   GET /api/products
- * @access  Public
- */
+
 export const getAllProducts = catchAsyncError(async (req, res, next) => {
   // Pagination
   const page = parseInt(req.query.page) || 1;
@@ -110,11 +109,7 @@ export const getAllProducts = catchAsyncError(async (req, res, next) => {
   });
 });
 
-/**
- * @desc    Get single product by ID
- * @route   GET /api/products/:id
- * @access  Public
- */
+
 export const getProductById = catchAsyncError(async (req, res, next) => {
   // 1. التحقق من صحة الـ ID
   if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
@@ -147,11 +142,7 @@ export const getProductById = catchAsyncError(async (req, res, next) => {
   });
 });
 
-/**
- * @desc    Update product (Admin only)
- * @route   PUT /api/products/:id
- * @access  Private/Admin
- */
+
 export const updateProduct = catchAsyncError(async (req, res, next) => {
   const product = await Product.findById(req.params.id);
 
@@ -159,7 +150,8 @@ export const updateProduct = catchAsyncError(async (req, res, next) => {
     return next(new ErrorHandler("Product not found", 404));
   }
 
-  // Update fields
+    const mainImageName = req.body.mainImageName;
+
   const updatableFields = [
     "name",
     "description",
@@ -171,7 +163,8 @@ export const updateProduct = catchAsyncError(async (req, res, next) => {
     "shortDescription",
     "showReviews",
     "showQuantity",
-    "showDiscount"
+    "showDiscount",
+    "showTag",
   ];
 
   updatableFields.forEach(field => {
@@ -182,7 +175,10 @@ export const updateProduct = catchAsyncError(async (req, res, next) => {
 
   // Handle images update
   if (req.files && req.files.length > 0) {
-    product.images = req.files.map(file => file.filename);
+    product.images = req.files.map(file => ({
+      url: file.filename,
+      isMain: file.filename === mainImageName,
+    }));
   }
 
   await product.save();

@@ -29,15 +29,23 @@ showDiscount: {
 },
 
 
-  images: {
-    type: [String],
-    default: [],
-  },
+images: [
+  {
+    url: { type: String, required: true },
+    isMain: { type: Boolean, default: false },
+  }
+],
+
   category: {
     type: String,
   },
   tag: {
     type: String,
+  },
+  showTag:{
+    type:Boolean,
+    default:false
+
   },
   shortDescription: {
     type: String,
