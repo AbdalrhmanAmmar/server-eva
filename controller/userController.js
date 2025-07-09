@@ -218,6 +218,7 @@ export const verifyOTPOnly = catchAsyncError(async (req, res, next) => {
 // Login
 export const login = catchAsyncError(async (req, res, next) => {
   const { phone, password } = req.body;
+
   if (!phone || !password) {
     return next(new ErrorHandler("Phone and password are required.", 400));
   }
@@ -228,37 +229,67 @@ export const login = catchAsyncError(async (req, res, next) => {
   const isMatch = await user.comparePassword(password);
   if (!isMatch) return next(new ErrorHandler("Invalid phone or password.", 400));
 
-  // توليد التوكن
+  // ✅ تحديث hasLoggedIn إذا لم يكن قد سجل دخول من قبل
+  if (!user.hasLoggedIn) {
+    user.hasLoggedIn = true;
+    await user.save(); // نحفظ التحديث
+  }
+
+  // ✅ توليد التوكن
   const token = user.generateToken();
 
-  // إرسال الرد مع بيانات المستخدم كاملة
-  res.status(200).cookie("token", token, {
-    httpOnly: true,
-    // باقي خيارات الكوكي حسب الحاجة
-  }).json({
-    success: true,
-    message: "Logged in successfully.",
-    user: {
-      id: user._id,
-      name: user.name,
-      phone: user.phone,
-      role: user.role,  // تأكد هنا ترسل الـ role
-    },
-    token,
-  });
+  // ✅ إرسال الرد مع بيانات المستخدم
+  res.status(200)
+    .cookie("token", token, {
+      httpOnly: true,
+      // يمكنك إضافة expires، secure... حسب بيئة التشغيل
+    })
+    .json({
+      success: true,
+      message: "Logged in successfully.",
+      user: {
+        id: user._id,
+        name: user.name,
+        phone: user.phone,
+        role: user.role,
+      },
+      token,
+    });
 });
 
 
 // Logout
 export const logout = catchAsyncError(async (req, res, next) => {
+  // استخرج المستخدم من التوكن أو الطلب
+  const token = req.cookies.token;
+  console.log(token)
+
+  if (!token) {
+    return res.status(401).json({ success: false, message: "Unauthorized" });
+  }
+
+  // حلل التوكن للحصول على الـ id
+  const decoded = jwt.verify(token, process.env.JWT_SECRET);
+  const user = await User.findById(decoded.id);
+
+  if (!user) {
+    return res.status(404).json({ success: false, message: "User not found" });
+  }
+
+  // ✨ تحديث حالة الحساب (مثال: hasLoggedIn = false أو isOnline = false)
+  user.hasLoggedIn = false;
+  await user.save();
+
+  // ✨ حذف التوكن
   res.status(200).cookie("token", "", {
     expires: new Date(Date.now()),
     httpOnly: true,
   }).json({
     success: true,
-    message: "Logged out successfully.",
+    message: "Logged out successfully and status updated.",
   });
 });
+
 
 // Get logged-in user info
 export const getUser = catchAsyncError(async (req, res, next) => {
@@ -269,3 +300,71 @@ export const getUser = catchAsyncError(async (req, res, next) => {
   });
 });
 
+export const getAllUsers = catchAsyncError(async (req, res, next) => {
+  const users = await User.find().select("-password"); // بدون كلمات مرور
+
+  res.status(200).json({
+    success: true,
+    count: users.length,
+    users,
+  });
+});
+
+// controllers/userController.js
+
+export const updateUserProfileAfterLogin = catchAsyncError(async (req, res, next) => {
+   console.log("🔍 Body data:", req.body);
+  console.log("👤 User ID:", req.user._id);
+  const userId = req.user._id;
+
+  const {
+    email,
+    gender,
+    entityType,
+    entityName,
+    accountRole,
+    jobTitle,
+    addresses,
+    commercialRecordNumber,
+    commercialRecordFile,
+    taxNumber,
+    taxFile,
+    nationalAddressNumber,
+    nationalAddressFile,
+  } = req.body;
+
+  // تأكد أن المستخدم موجود
+  const user = await User.findById(userId);
+  if (!user) return next(new ErrorHandler("User not found", 404));
+
+  // تحديث البيانات الأساسية
+  if (email) user.email = email;
+  if (gender) user.gender = gender;
+  if (entityType) user.entityType = entityType;
+  if (entityType !== "individual") {
+    user.entityName = entityName;
+    user.accountRole = accountRole;
+    if (accountRole === "employee") {
+      user.jobTitle = jobTitle;
+    }
+    user.commercialRecordNumber = commercialRecordNumber;
+    user.commercialRecordFile = commercialRecordFile;
+    user.taxNumber = taxNumber;
+    user.taxFile = taxFile;
+    user.nationalAddressNumber = nationalAddressNumber;
+    user.nationalAddressFile = nationalAddressFile;
+  }
+
+  // تحديث العناوين (لو أرسلتها كمصفوفة)
+  if (addresses && Array.isArray(addresses)) {
+    user.addresses = addresses;
+  }
+
+  await user.save();
+
+  res.status(200).json({
+    success: true,
+    message: "تم تحديث بيانات الملف الشخصي بنجاح",
+    user,
+  });
+});

@@ -20,7 +20,7 @@ const createAdminUser = async () => {
 
     const adminUser = new User({
       name: "Admin User",
-      phone: "966500000000",
+      phone: "966500000011",
       password: hashedPassword,
       role: "admin",  // تأكد انها موجودة هنا
       accountVerified: true,

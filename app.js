@@ -7,6 +7,8 @@ import userRoutes from "./routes/userRoutes.js";
 import productRoutes from "./routes/productRoutes.js";
 import pointsPackageRoutes from "./routes/pointsPackageRoutes.js";
 import reviewRoutes from "./routes/reviewRoutes.js";
+import adminRoutes from "./routes/adminRoutes.js";
+import serviceRoutes from "./routes/serviceRoutes.js";
 
 import { errorMiddleware } from "./middleware/error.js";
 import { connection } from "./database/DbConnection.js";
@@ -39,6 +41,8 @@ app.use("/api/user", userRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/points", pointsPackageRoutes);
 app.use("/api/review", reviewRoutes);
+app.use("/api/admin", adminRoutes);
+app.use("/api/services", serviceRoutes);
 
 
 // Test Route

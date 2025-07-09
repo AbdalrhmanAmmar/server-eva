@@ -8,6 +8,7 @@ import {
   forgotPassword,
   resetPassword,
   verifyOTPOnly,
+  updateUserProfileAfterLogin,
 } from "../controller/userController.js";
 import { isAuthenticated } from "../middleware/auth.js";
 
@@ -24,7 +25,7 @@ router.post("/verify-otp-only", verifyOTPOnly);
 router.post("/login", login);
 
 // تسجيل الخروج
-router.get("/logout", logout);
+router.post("/logout",isAuthenticated,logout);
 
 // استعادة كلمة المرور
 router.post("/forgot-password", forgotPassword);
@@ -32,5 +33,7 @@ router.post("/reset-password", resetPassword);
 
 // الحصول على بيانات المستخدم الحالي (بعد التوثيق)
 router.get("/me", isAuthenticated, getUser);
+router.put("/update-profile",isAuthenticated ,updateUserProfileAfterLogin);
+
 
 export default router;
