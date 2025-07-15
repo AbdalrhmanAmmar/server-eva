@@ -9,8 +9,10 @@ import {
   resetPassword,
   verifyOTPOnly,
   updateUserProfileAfterLogin,
+  verifyEmailCode,
 } from "../controller/userController.js";
 import { isAuthenticated } from "../middleware/auth.js";
+import { upload } from "../middleware/upload.js";
 
 const router = express.Router();
 
@@ -33,7 +35,20 @@ router.post("/reset-password", resetPassword);
 
 // الحصول على بيانات المستخدم الحالي (بعد التوثيق)
 router.get("/me", isAuthenticated, getUser);
-router.put("/update-profile",isAuthenticated ,updateUserProfileAfterLogin);
+router.post("/verify-email-code", verifyEmailCode);
+
+
+
+router.put(
+  "/update-profile",
+  upload.fields([
+    { name: "commercialRecordFile", maxCount: 1 },
+    { name: "taxFile", maxCount: 1 },
+    { name: "nationalAddressFile", maxCount: 1 },
+  ]),
+  isAuthenticated,
+  updateUserProfileAfterLogin
+);
 
 
 export default router;

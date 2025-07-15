@@ -62,6 +62,12 @@ images: [
     type: Number,
     default: 0,
   },
+  warehouse: {
+  type: mongoose.Schema.Types.ObjectId,
+  ref: "Warehouse",
+  required: true,
+},
+
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Admin", // Assuming you have an Admin model

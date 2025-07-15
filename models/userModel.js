@@ -5,10 +5,32 @@ import crypto from "crypto";
 
 // ✅ مخطط العناوين (يمكن تخزين أكثر من عنوان)
 const addressSchema = new mongoose.Schema({
-  country: String,
-  city: String,
-  fullAddress: String,
+  country: {
+    type: String,
+    required: true,
+  },
+  city: {
+    type: String,
+    required: true,
+  },
+  buildingNumber: {
+    type: String,
+    required: true,
+  },
+  unitNumber: {
+    type: String,
+    required: false,
+  },
+  apartmentNumber: {
+    type: String,
+    required: false,
+  },
+  addressDetails: {
+    type: String,
+    required: false,
+  },
 });
+
 
 // ✅ سكيما المستخدم
 const userSchema = new mongoose.Schema({
@@ -26,6 +48,14 @@ const userSchema = new mongoose.Schema({
     required: [false, "Email is required"],
     unique: true,
   },
+  emailVerificationCode: Number,
+emailVerificationCodeExpire: Date,
+emailVerified: {
+  type: Boolean,
+  default: false,
+},
+pendingEmail: String,
+
   gender: {
     type: String,
     enum: ["male", "female"],
@@ -38,6 +68,11 @@ const userSchema = new mongoose.Schema({
     default: "individual",
     required: true,
   },
+  verificationStatus: {
+  type: String,
+  enum: ["pending", "approved", "rejected"],
+  default: "approved",
+},
   entityName: {
     type: String,
     required: function () {

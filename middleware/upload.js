@@ -15,17 +15,19 @@ const storage = multer.diskStorage({
 });
 
 // فلتر للتحقق من نوع الملفات (صورة فقط)
+// ✅ السماح بصور و PDF
 const fileFilter = (req, file, cb) => {
-  const allowedTypes = /jpeg|jpg|png|gif/;
+  const allowedTypes = /jpeg|jpg|png|gif|pdf/;
   const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
   const mimetype = allowedTypes.test(file.mimetype);
 
   if (extname && mimetype) {
-    return cb(null, true);
+    cb(null, true);
   } else {
-    cb(new Error("Only images are allowed (jpeg, jpg, png, gif)"));
+    cb(new Error("Only images and PDF files are allowed"));
   }
 };
+
 
 export const upload = multer({
   storage,

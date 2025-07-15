@@ -5,6 +5,7 @@ import ErrorHandler from "../middleware/error.js";
 import { catchAsyncError } from "../middleware/catchAsyncError.js";
 import { User } from "../models/userModel.js";
 import { sendToken } from "../utils/sendToken.js";
+import sendVerificationEmail from "../utils/sendVerificationEmail.js";
 
 
 
@@ -47,7 +48,7 @@ const user = await User.findOne({ phone });
   }
 });
 
-// Reset Password - التحقق من الرمز وتحديث كلمة المرور
+
 export const resetPassword = catchAsyncError(async (req, res, next) => {
   const { phone, token, newPassword } = req.body;
 
@@ -78,7 +79,7 @@ export const resetPassword = catchAsyncError(async (req, res, next) => {
   });
 });
 
-// Register with SMS
+
 export const sendOTP = catchAsyncError(async (req, res, next) => {
   const { phone } = req.body;
   if (!phone) return next(new ErrorHandler("Phone number is required.", 400));
@@ -312,10 +313,12 @@ export const getAllUsers = catchAsyncError(async (req, res, next) => {
 
 // controllers/userController.js
 
+
 export const updateUserProfileAfterLogin = catchAsyncError(async (req, res, next) => {
-   console.log("🔍 Body data:", req.body);
-  console.log("👤 User ID:", req.user._id);
   const userId = req.user._id;
+  const user = await User.findById(userId);
+
+  if (!user) return next(new ErrorHandler("المستخدم غير موجود", 404));
 
   const {
     email,
@@ -326,45 +329,172 @@ export const updateUserProfileAfterLogin = catchAsyncError(async (req, res, next
     jobTitle,
     addresses,
     commercialRecordNumber,
-    commercialRecordFile,
     taxNumber,
-    taxFile,
     nationalAddressNumber,
-    nationalAddressFile,
   } = req.body;
 
-  // تأكد أن المستخدم موجود
-  const user = await User.findById(userId);
-  if (!user) return next(new ErrorHandler("User not found", 404));
+  console.log("📥 البيانات الواردة:", req.body);
+  console.log("📁 الملفات المرفوعة:", req.files);
 
-  // تحديث البيانات الأساسية
-  if (email) user.email = email;
+  // ✅ التحقق من تغيير البريد الإلكتروني وتوليد كود
+  if (email && email !== user.email) {
+    const code = 123456; 
+    console.log("🔵 سيتم حفظ الإيميل:", email);
+console.log("🟢 كود التحقق:", code);
+
+
+    user.pendingEmail = email;
+    user.emailVerificationCode = code;
+    user.emailVerificationCodeExpire = Date.now() + 5 * 60 * 1000;
+    user.emailVerified = false;
+
+    await sendVerificationEmail(email, code);
+    console.log("📨 تم إرسال كود التحقق:", code);
+  }
+
+  // ✅ تحديث بيانات عامة
   if (gender) user.gender = gender;
-  if (entityType) user.entityType = entityType;
-  if (entityType !== "individual") {
-    user.entityName = entityName;
-    user.accountRole = accountRole;
-    if (accountRole === "employee") {
-      user.jobTitle = jobTitle;
+
+  // ✅ التحقق من نوع الكيان (لا يمكن الرجوع لنوع أقل)
+  if (entityType && entityType !== user.entityType) {
+    const hierarchy = { individual: 1, organization: 2, company: 3 };
+    if (hierarchy[entityType] < hierarchy[user.entityType]) {
+      return next(new ErrorHandler("لا يمكن الرجوع إلى نوع كيان أدنى", 400));
     }
-    user.commercialRecordNumber = commercialRecordNumber;
-    user.commercialRecordFile = commercialRecordFile;
-    user.taxNumber = taxNumber;
-    user.taxFile = taxFile;
-    user.nationalAddressNumber = nationalAddressNumber;
-    user.nationalAddressFile = nationalAddressFile;
+    user.previousEntityType = user.entityType;
+    user.entityType = entityType;
   }
 
-  // تحديث العناوين (لو أرسلتها كمصفوفة)
-  if (addresses && Array.isArray(addresses)) {
-    user.addresses = addresses;
+  // ✅ معالجة الكيانات غير الفردية
+  if (user.entityType !== "individual") {
+    // ❗ لا تمنع تعديل الإيميل في حالة pending
+    const isEmailOnlyUpdate = email && Object.keys(req.body).length === 1;
+
+    if (user.verificationStatus === "pending" && !isEmailOnlyUpdate) {
+      return next(new ErrorHandler("❌ لا يمكن تعديل البيانات أثناء انتظار التحقق", 403));
+    }
+
+    const sensitiveFieldsChanged = (
+      entityName !== user.entityName ||
+      accountRole !== user.accountRole ||
+      jobTitle !== user.jobTitle ||
+      commercialRecordNumber !== user.commercialRecordNumber ||
+      taxNumber !== user.taxNumber ||
+      nationalAddressNumber !== user.nationalAddressNumber ||
+      req.files?.commercialRecordFile?.[0] ||
+      req.files?.taxFile?.[0] ||
+      req.files?.nationalAddressFile?.[0]
+    );
+
+    if (sensitiveFieldsChanged) {
+      user.verificationStatus = "pending";
+    }
+
+    if (entityName) user.entityName = entityName;
+    if (accountRole) user.accountRole = accountRole;
+    if (accountRole === "employee" && jobTitle) user.jobTitle = jobTitle;
+    if (commercialRecordNumber) user.commercialRecordNumber = commercialRecordNumber;
+    if (taxNumber) user.taxNumber = taxNumber;
+    if (nationalAddressNumber) user.nationalAddressNumber = nationalAddressNumber;
+
+    // ✅ رفع ملفات
+    const handleFileUpload = (file, fieldName) => {
+      if (file?.[0]) {
+        user[fieldName] = `/uploads/${file[0].filename}`;
+        console.log(`✅ ${fieldName} محفوظ:`, user[fieldName]);
+      }
+    };
+
+    handleFileUpload(req.files?.commercialRecordFile, 'commercialRecordFile');
+    handleFileUpload(req.files?.taxFile, 'taxFile');
+    handleFileUpload(req.files?.nationalAddressFile, 'nationalAddressFile');
   }
+
+  // ✅ معالجة العناوين
+  if (req.body.addresses) {
+    try {
+      const addressesData = typeof req.body.addresses === 'string'
+        ? JSON.parse(req.body.addresses)
+        : req.body.addresses;
+
+      if (!Array.isArray(addressesData)) {
+        return next(new ErrorHandler("تنسيق العناوين غير صحيح - يجب أن تكون مصفوفة", 400));
+      }
+
+      user.addresses = addressesData.map(addr => ({
+        country: addr.country?.trim() || '',
+        city: addr.city?.trim() || '',
+        district: addr.district?.trim() || '',
+        street: addr.street?.trim() || '',
+        buildingNumber: addr.buildingNumber?.trim() || '',
+        unitNumber: addr.unitNumber?.trim() || '',
+        apartmentNumber: addr.apartmentNumber?.trim() || '',
+        postalCode: addr.postalCode?.trim() || '',
+        addressDetails: addr.addressDetails?.trim() || '',
+        isDefault: addr.isDefault || false
+      }));
+
+      const defaultAddresses = user.addresses.filter(addr => addr.isDefault);
+      if (defaultAddresses.length > 1) {
+        return next(new ErrorHandler("يجب تحديد عنوان افتراضي واحد فقط", 400));
+      }
+    } catch (err) {
+      console.error('❌ خطأ في معالجة العناوين:', err);
+      return next(new ErrorHandler("تنسيق العناوين غير صحيح", 400));
+    }
+  }
+
+  // ✅ حفظ التعديلات
+  try {
+    await user.save();
+    const updatedUser = await User.findById(user._id).select('-password');
+
+    res.status(200).json({
+      success: true,
+      message: "تم تحديث الملف الشخصي بنجاح",
+      user: updatedUser,
+      verificationStatus: updatedUser.verificationStatus,
+      pendingEmail: updatedUser.pendingEmail || null
+    });
+
+  } catch (saveError) {
+    console.error('❌ خطأ في حفظ البيانات:', saveError);
+    return next(new ErrorHandler("حدث خطأ أثناء حفظ البيانات", 500));
+  }
+});
+
+export const verifyEmailCode = catchAsyncError(async (req, res, next) => {
+  const { userId, code } = req.body;
+
+  const user = await User.findById(userId);
+  if (!user) return next(new ErrorHandler("المستخدم غير موجود", 404));
+console.log("🟡 الكود من المستخدم:", code);
+console.log("🟢 الكود في قاعدة البيانات:", user.emailVerificationCode);
+console.log("🕐 الوقت الحالي:", Date.now());
+console.log("📅 انتهاء صلاحية الكود:", user.emailVerificationCodeExpire);
+console.log("📧 pendingEmail:", user.pendingEmail);
+
+  if (
+    !user.pendingEmail ||
+    user.emailVerificationCode !== Number(code) ||
+    Date.now() > user.emailVerificationCodeExpire
+  ) {
+    return next(new ErrorHandler("رمز التحقق غير صحيح أو منتهي", 400));
+  }
+
+  user.email = user.pendingEmail;
+  user.pendingEmail = undefined;
+  user.emailVerified = true;
+  user.emailVerificationCode = undefined;
+  user.emailVerificationCodeExpire = undefined;
 
   await user.save();
+console.log("📬 بعد الحفظ - pendingEmail:", user.pendingEmail);
+console.log("📬 بعد الحفظ - code:", user.emailVerificationCode);
+
 
   res.status(200).json({
     success: true,
-    message: "تم تحديث بيانات الملف الشخصي بنجاح",
-    user,
+    message: "✅ تم تأكيد البريد الإلكتروني",
   });
 });

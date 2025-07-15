@@ -9,6 +9,9 @@ import pointsPackageRoutes from "./routes/pointsPackageRoutes.js";
 import reviewRoutes from "./routes/reviewRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import serviceRoutes from "./routes/serviceRoutes.js";
+import warehouseRoute from "./routes/warehouseRoute.js";
+import inventoryRoutes from "./routes/inventoryRoutes.js";
+import inventoryItemRoute from "./routes/inventoryItemRoutes.js";
 
 import { errorMiddleware } from "./middleware/error.js";
 import { connection } from "./database/DbConnection.js";
@@ -20,12 +23,18 @@ config({ path: "./config.env" });
 export const app = express();
 
 app.use(cors({
-  origin: [process.env.FRONTEND_URL || "http://localhost:3000"],
-  methods: ["GET", "POST", "PUT", "DELETE"],
-  credentials: true,
+  origin: "http://localhost:3000",
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+  credentials: true, 
+
 }));
 
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+
+app.get("/cors-test", (req, res) => {
+  res.json({ message: "CORS working ✅" });
+});
+
 
 
 connection();
@@ -43,6 +52,10 @@ app.use("/api/points", pointsPackageRoutes);
 app.use("/api/review", reviewRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/services", serviceRoutes);
+app.use("/api/warehouses", warehouseRoute);
+app.use("/api/inventories", inventoryRoutes);
+app.use('/api/inventory-items', inventoryItemRoute);
+
 
 
 // Test Route

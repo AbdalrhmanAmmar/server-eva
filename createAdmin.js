@@ -2,10 +2,10 @@ import mongoose from "mongoose";
 import dotenv from "dotenv";
 import { User } from "./models/userModel.js";
 
-dotenv.config({ path: "./config.env" });  // تأكد هذه السطر موجودة
+dotenv.config({ path: "./config.env" }); 
 
 const createAdminUser = async () => {
-  console.log("MONGO_URI:", process.env.MONGO_URI); // تأكد أنه مش undefined
+  console.log("MONGO_URI:", process.env.MONGO_URI);
 
   try {
     await mongoose.connect(process.env.MONGO_URI);
