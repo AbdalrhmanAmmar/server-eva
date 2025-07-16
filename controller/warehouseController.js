@@ -46,28 +46,30 @@ export const getAllWarehouses = catchAsyncError(async (req, res) => {
 
 export const updateWarehouse = catchAsyncError(async (req, res) => {
   const { id } = req.params;
-  const { isActive, order } = req.body;
 
-  // تحقق من وجود أحد الحقول المطلوبة
-  if (typeof isActive === 'undefined' && typeof order === 'undefined') {
+  // تحديد الحقول المسموحة بالتعديل
+  const allowedFields = ['isActive', 'order', 'name', 'country', 'city', 'district', 'street'];
+
+  // إنشاء كائن التحديث بناءً على الحقول الموجودة في req.body
+  const updateFields = {};
+  for (const key of allowedFields) {
+    if (typeof req.body[key] !== 'undefined') {
+      updateFields[key] = req.body[key];
+    }
+  }
+
+  // إذا لم يتم إرسال أي حقل مسموح به
+  if (Object.keys(updateFields).length === 0) {
     return res.status(400).json({
       success: false,
-      message: 'يجب إرسال isActive أو order',
+      message: 'يجب إرسال بيانات صحيحة للتحديث',
     });
   }
 
-  const updateFields = {};
-  if (typeof isActive !== 'undefined') updateFields['isActive'] = isActive;
-  if (typeof order !== 'undefined') updateFields['order'] = order;
-
-  const updated = await Warehouse.findByIdAndUpdate(
-    id,
-    updateFields,
-    {
-      new: true,
-      runValidators: true,
-    }
-  );
+  const updated = await Warehouse.findByIdAndUpdate(id, updateFields, {
+    new: true,
+    runValidators: true,
+  });
 
   if (!updated) {
     return res.status(404).json({
@@ -82,6 +84,7 @@ export const updateWarehouse = catchAsyncError(async (req, res) => {
     warehouse: updated,
   });
 });
+
 
 
 export const deleteWarehouse = catchAsyncError(async (req, res) => {

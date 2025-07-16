@@ -1,6 +1,7 @@
 import InventoryCount from "../models/inventoryCountModel.js";
 import { catchAsyncError } from "../middleware/catchAsyncError.js";
 import { Product } from "../models/productModel.js";
+import InventoryCountItem from "../models/inventoryCountItemModel.js";
 
 
 export const createInventoryCount = catchAsyncError(async (req, res) => {

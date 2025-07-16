@@ -1,9 +1,7 @@
 // controller/inventoryItemController.js
 import InventoryCountItem from "../models/inventoryCountItemModel.js";
-import { catchAsyncError } from "../middleware/catchAsyncError.js";
 
-// controller/inventoryItemController.js
-import InventoryCountItem from "../models/inventoryCountItemModel.js";
+
 import { catchAsyncError } from "../middleware/catchAsyncError.js";
 
 export const createInventoryItem = catchAsyncError(async (req, res) => {
