@@ -3,7 +3,7 @@ import { User } from "../models/userModel.js";
 import  Product  from "../models/ProductModel.js";
 import { catchAsyncError } from "../middleware/catchAsyncError.js";
 import ErrorHandler from "../middleware/error.js";
-import { review } from "../models/reviewModel.js";
+import review from "../models/reviewModel.js";
 
 
 export const getUserDetails = catchAsyncError(async (req, res, next) => {
