@@ -1,5 +1,5 @@
 // controllers/reviewController.js
-import { Review } from "../models/ReviewModel.js";
+import { review } from "../models/ReviewModel.js";
 import { Product } from "../models/ProductModel.js";
 import ErrorHandler from "../middleware/error.js";
 import { catchAsyncError } from "../middleware/catchAsyncError.js";
@@ -15,7 +15,7 @@ export const addReview = catchAsyncError(async (req, res, next) => {
   }
 
   // منع التقييم المكرر
-  const existingReview = await Review.findOne({ user: userId, product: productId });
+  const existingReview = await review.findOne({ user: userId, product: productId });
   if (existingReview) {
     return next(new ErrorHandler("لقد قمت بتقييم هذا المنتج مسبقًا", 400));
   }
@@ -23,7 +23,7 @@ export const addReview = catchAsyncError(async (req, res, next) => {
   await Review.create({ user: userId, product: productId, rating, comment });
 
   // تحديث تقييم المنتج
-  const reviews = await Review.find({ product: productId });
+  const reviews = await review.find({ product: productId });
   const averageRating =
     reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length;
 
@@ -57,7 +57,7 @@ export const deleteReview = catchAsyncError(async (req, res, next) => {
   const reviewId = req.params.id;
   const userId = req.user._id;
 
-  const review = await Review.findById(reviewId);
+  const review = await review.findById(reviewId);
   if (!review) {
     return next(new ErrorHandler("المراجعة غير موجودة", 404));
   }
@@ -69,7 +69,7 @@ export const deleteReview = catchAsyncError(async (req, res, next) => {
   await review.deleteOne();
 
   // تحديث تقييم المنتج
-  const reviews = await Review.find({ product: review.product });
+  const reviews = await review.find({ product: review.product });
   const averageRating =
     reviews.length > 0
       ? reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length
@@ -92,7 +92,7 @@ export const updateReview = catchAsyncError(async (req, res, next) => {
   const reviewId = req.params.id;
   const userId = req.user._id;
 
-  const review = await Review.findById(reviewId);
+  const review = await review.findById(reviewId);
   if (!review) return next(new ErrorHandler("المراجعة غير موجودة", 404));
 
   if (!review.user.equals(userId)) {
