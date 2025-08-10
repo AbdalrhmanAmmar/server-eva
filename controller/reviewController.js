@@ -1,6 +1,6 @@
 // controllers/reviewController.js
 import { review } from "../models/reviewModel.js";
-import { Product } from "../models/ProductModel.js";
+import  Product  from "../models/ProductModel.js";
 import ErrorHandler from "../middleware/error.js";
 import { catchAsyncError } from "../middleware/catchAsyncError.js";
 import mongoose from "mongoose";
