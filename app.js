@@ -50,7 +50,6 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/api/user", userRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/points", pointsPackageRoutes);
-app.use("/api/review", reviewRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/services", serviceRoutes);
 app.use("/api/warehouses", warehouseRoute);
