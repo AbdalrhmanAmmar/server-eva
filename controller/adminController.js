@@ -1,6 +1,6 @@
 // controllers/adminController.js
 import { User } from "../models/userModel.js";
-import { Product } from "../models/ProductModel.js";
+import  Product  from "../models/ProductModel.js";
 import { catchAsyncError } from "../middleware/catchAsyncError.js";
 import ErrorHandler from "../middleware/error.js";
 import { Review } from "../models/reviewModel.js";
