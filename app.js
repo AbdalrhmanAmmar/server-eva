@@ -24,7 +24,7 @@ config({ path: "./config.env" });
 export const app = express();
 
 app.use(cors({
-  origin: "http://localhost:3000",
+  origin: ["http://localhost:3000" , "https://evasaudi.com"],
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
   credentials: true, 
 
