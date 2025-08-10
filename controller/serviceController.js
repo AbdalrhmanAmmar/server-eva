@@ -1,4 +1,4 @@
-import { Service } from "../models/serviceModel.js";
+import { Service } from "../models/ServiceModel.js";
 import ErrorHandler from "../middleware/error.js";
 import { catchAsyncError } from "../middleware/catchAsyncError.js";
 
