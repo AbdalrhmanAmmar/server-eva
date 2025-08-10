@@ -3,7 +3,7 @@ import { User } from "../models/userModel.js";
 import  Product  from "../models/ProductModel.js";
 import { catchAsyncError } from "../middleware/catchAsyncError.js";
 import ErrorHandler from "../middleware/error.js";
-import { Review } from "../models/reviewModel.js";
+import review  from "../modelsModel.js";
 
 
 export const getUserDetails = catchAsyncError(async (req, res, next) => {
@@ -16,7 +16,7 @@ export const getUserDetails = catchAsyncError(async (req, res, next) => {
   const products = await Product.find({ boughtBy: userId });
 
   // جلب المراجعات التي كتبها
-  const reviews = await Review.find({ user: userId }).populate("product", "name");
+  consts = await review.find({ user: userId }).populate("product", "name");
 
   res.status(200).json({
     success: true,
