@@ -1,6 +1,6 @@
 import ErrorHandler from "../middleware/error.js";
 import { catchAsyncError } from "../middleware/catchAsyncError.js";
-import { Product } from "../models/ProductModel.js";
+import Product  from "../models/ProductModel.js";
 import mongoose from "mongoose";
 
 export const createProduct = catchAsyncError(async (req, res, next) => {
