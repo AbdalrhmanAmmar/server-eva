@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { Product } from "./ProductModel.js"; // تأكد من صحة المسار
+
 
 // عنصر من عناصر الجرد
 const inventoryCountItemSchema = new mongoose.Schema(
