@@ -4,7 +4,6 @@ import crypto from "crypto";
 import ErrorHandler from "../middleware/error.js";
 import { catchAsyncError } from "../middleware/catchAsyncError.js";
 import { User } from "../models/userModel.js";
-import { sendToken } from "../utils/sendToken.js";
 import sendVerificationEmail from "../utils/sendVerificationEmail.js";
 
 
