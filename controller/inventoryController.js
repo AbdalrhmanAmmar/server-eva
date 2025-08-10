@@ -1,6 +1,6 @@
 
 import Warehouse from "../models/warehouseModel.js";
-import { Product } from "../models/ProductModel.js";
+import  Product  from "../models/ProductModel.js";
 import InventoryCount from './../models/inventoryCountModel.js';
 import { catchAsyncError } from "../middleware/catchAsyncError.js";
 
