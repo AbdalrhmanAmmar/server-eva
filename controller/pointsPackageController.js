@@ -1,5 +1,5 @@
 // controllers/pointsPackageController.js
-import PointsPackage from "../models/ProductModel.js";
+import {PointsPackage} from "../models/ProductModel.js";
 import ErrorHandler from "../middleware/error.js";
 import { catchAsyncError } from "../middleware/catchAsyncError.js";
 
