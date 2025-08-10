@@ -15,45 +15,114 @@ export const createProduct = catchAsyncError(async (req, res, next) => {
     shortDescription,
     showQuantity = false,
     showReviews = true,
-    showDiscount=false,
-    showTag=false
+    showDiscount = false,
+    showTag = false,
+    showProduct = true,
+    requiresShipping = true,
+    discounts = [],
+    showRelatedProduct=false,
+    
+    // الحقول الأخرى
+    sku,
+    barcode,
+    weight,
+    minOrder,
+    maxOrder,
+    isTaxExempt = false,
+    relatedProducts,
+    warehouse,
   } = req.body;
+
   const mainImageName = req.body.mainImageName;
 
-  // Validate required fields
-  if (!name || !priceBeforeDiscount) {
-    return next(new ErrorHandler("Product name and price are required", 400));
+  // ✅ التحقق من الحقول المطلوبة
+  if (!name || !priceBeforeDiscount || !warehouse) {
+    return next(new ErrorHandler("اسم المنتج، السعر، والمخزن مطلوبة", 400));
   }
 
-  // Validate at least one image is uploaded
   if (!req.files || req.files.length === 0) {
-    return next(new ErrorHandler("At least one product image is required", 400));
+    return next(new ErrorHandler("يجب رفع صورة واحدة على الأقل", 400));
   }
 
-  // Create product
+  // التحقق من صحة تواريخ الخصم إذا وجدت
+  if (discounts && discounts.length > 0) {
+    for (const discount of discounts) {
+      if (!discount.startDate || !discount.endDate) {
+        return next(new ErrorHandler("يجب تحديد تاريخ بداية ونهاية لكل خصم", 400));
+      }
+      
+      if (new Date(discount.startDate) >= new Date(discount.endDate)) {
+        return next(new ErrorHandler("تاريخ بداية الخصم يجب أن يكون قبل تاريخ النهاية", 400));
+      }
+      
+      if (!discount.discountAmount || discount.discountAmount <= 0) {
+        return next(new ErrorHandler("يجب تحديد قيمة الخصم وتكون أكبر من الصفر", 400));
+      }
+      
+      if (!['percentage', 'fixed'].includes(discount.discountType)) {
+        return next(new ErrorHandler("نوع الخصم يجب أن يكون 'percentage' أو 'fixed'", 400));
+      }
+    }
+  }
+
+  // حساب السعر بعد الخصم إذا لم يتم تحديده
+  let finalPriceAfterDiscount = priceAfterDiscount || priceBeforeDiscount;
+
+  // إذا كان هناك خصم نشط، احسب السعر الجديد
+  const now = new Date();
+  if (discounts && discounts.length > 0) {
+    const activeDiscount = discounts.find(d => 
+      new Date(d.startDate) <= now && new Date(d.endDate) >= now
+    );
+    
+    if (activeDiscount) {
+      if (activeDiscount.discountType === 'percentage') {
+        finalPriceAfterDiscount = priceBeforeDiscount * (1 - activeDiscount.discountAmount / 100);
+      } else {
+        finalPriceAfterDiscount = priceBeforeDiscount - activeDiscount.discountAmount;
+      }
+      // التأكد من أن السعر بعد الخصم ليس أقل من الصفر
+      finalPriceAfterDiscount = Math.max(0, finalPriceAfterDiscount);
+    }
+  }
+
   const product = await Product.create({
     name,
     description,
     priceBeforeDiscount,
-    priceAfterDiscount: priceAfterDiscount || priceBeforeDiscount,
+    priceAfterDiscount: finalPriceAfterDiscount,
     quantity: quantity || 0,
     category,
     tag,
     shortDescription,
     showReviews,
     showQuantity,
-    showDiscount,
+    showDiscount: discounts && discounts.some(d => 
+      new Date(d.startDate) <= now && new Date(d.endDate) >= now
+    ),
     showTag,
+    showProduct,
+    requiresShipping,
+    discounts,
+    sku,
+    barcode,
+    weight,
+    minOrder,
+    maxOrder,
+    isTaxExempt,
+    relatedProducts,
+    showRelatedProduct,
+    warehouse,
+    createdBy: req.user?.id || null,
     images: req.files.map(file => ({
-  url: file.filename,
-  isMain: file.filename === mainImageName, // فقط الصورة المطابقة تصبح رئيسية
-})),
-
+      url: file.filename,
+      isMain: file.filename === mainImageName,
+    })),
   });
 
   res.status(201).json({
     success: true,
-    message: "Product created successfully",
+    message: "تم إنشاء المنتج بنجاح",
     product,
   });
 });
@@ -150,30 +219,43 @@ export const updateProduct = catchAsyncError(async (req, res, next) => {
     return next(new ErrorHandler("Product not found", 404));
   }
 
-    const mainImageName = req.body.mainImageName;
+  const mainImageName = req.body.mainImageName;
+  const now = new Date();
 
+  // الحقول القابلة للتحديث
   const updatableFields = [
     "name",
     "description",
     "priceBeforeDiscount",
-    "priceAfterDiscount",
     "quantity",
     "category",
     "tag",
     "shortDescription",
     "showReviews",
     "showQuantity",
-    "showDiscount",
     "showTag",
+    "showProduct",
+    "requiresShipping",
+    "sku",
+    "barcode",
+    "showRelatedProduct",
+    "weight",
+    "minOrder",
+    "maxOrder",
+    "isTaxExempt",
+    "relatedProducts",
+    "warehouse",
+    "discounts"
   ];
 
+  // تحديث الحقول الأساسية
   updatableFields.forEach(field => {
     if (req.body[field] !== undefined) {
       product[field] = req.body[field];
     }
   });
 
-  // Handle images update
+  // معالجة تحديث الصور
   if (req.files && req.files.length > 0) {
     product.images = req.files.map(file => ({
       url: file.filename,
@@ -181,11 +263,62 @@ export const updateProduct = catchAsyncError(async (req, res, next) => {
     }));
   }
 
+  // التحقق من الخصومات وتحديث السعر وحالة العرض
+  if (req.body.discounts !== undefined) {
+    // التحقق من صحة الخصومات إذا تم تحديثها
+    if (req.body.discounts && req.body.discounts.length > 0) {
+      for (const discount of req.body.discounts) {
+        if (!discount.startDate || !discount.endDate) {
+          return next(new ErrorHandler("يجب تحديد تاريخ بداية ونهاية لكل خصم", 400));
+        }
+        
+        if (new Date(discount.startDate) >= new Date(discount.endDate)) {
+          return next(new ErrorHandler("تاريخ بداية الخصم يجب أن يكون قبل تاريخ النهاية", 400));
+        }
+        
+        if (!discount.discountAmount || discount.discountAmount <= 0) {
+          return next(new ErrorHandler("يجب تحديد قيمة الخصم وتكون أكبر من الصفر", 400));
+        }
+        
+        if (!['percentage', 'fixed'].includes(discount.discountType)) {
+          return next(new ErrorHandler("نوع الخصم يجب أن يكون 'percentage' أو 'fixed'", 400));
+        }
+      }
+    }
+
+    // تحديث حالة العرض بناءً على الخصومات النشطة
+    product.showDiscount = product.discounts.some(d => 
+      new Date(d.startDate) <= now && new Date(d.endDate) >= now
+    );
+  }
+
+  // حساب السعر بعد الخصم إذا كان هناك تحديث للسعر الأصلي أو الخصومات
+  if (req.body.priceBeforeDiscount !== undefined || req.body.discounts !== undefined) {
+    let finalPrice = product.priceBeforeDiscount;
+    
+    if (product.discounts && product.discounts.length > 0) {
+      const activeDiscount = product.discounts.find(d => 
+        new Date(d.startDate) <= now && new Date(d.endDate) >= now
+      );
+      
+      if (activeDiscount) {
+        if (activeDiscount.discountType === 'percentage') {
+          finalPrice = product.priceBeforeDiscount * (1 - activeDiscount.discountAmount / 100);
+        } else {
+          finalPrice = product.priceBeforeDiscount - activeDiscount.discountAmount;
+        }
+        finalPrice = Math.max(0, finalPrice);
+      }
+    }
+    
+    product.priceAfterDiscount = finalPrice;
+  }
+
   await product.save();
 
   res.status(200).json({
     success: true,
-    message: "Product updated successfully",
+    message: "تم تحديث المنتج بنجاح",
     product,
   });
 });
@@ -228,4 +361,30 @@ export const getProductsByCategory = catchAsyncError(async (req, res, next) => {
     count: products.length,
     products,
   });
+});
+
+export const getProductsByWarehouse = catchAsyncError(async (req, res, next) => {
+  try {
+    const { warehouse } = req.params; // ← بدل من req.query
+
+    if (!warehouse) {
+      return res.status(400).json({
+        success: false,
+        message: "رقم المخزن مطلوب",
+      });
+    }
+
+    const products = await Product.find({ warehouse });
+
+    res.status(200).json({
+      success: true,
+      products,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ أثناء جلب المنتجات",
+      error: error.message,
+    });
+  }
 });

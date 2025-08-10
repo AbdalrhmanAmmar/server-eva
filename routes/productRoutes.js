@@ -7,9 +7,10 @@ import {
   deleteProduct, 
   getAllProducts, 
   getProductById,
-  getProductsByCategory 
+  getProductsByCategory ,
 } from "../controller/ProductController.js";
 import { isAdmin } from "../middleware/isAdmin.js";
+import { getWarehouseById } from "../controller/warehouseController.js";
 
 const router = express.Router();
 
@@ -21,7 +22,7 @@ router.post(
   createProduct
 );
 
-router.put(
+router.patch(
   "/:id",
   upload.array("images", 3), 
   updateProduct
@@ -35,6 +36,8 @@ router.delete(
 
 // Public routes
 router.get("/", getAllProducts);
+router.get("/:id", getWarehouseById);
+
 router.get("/category/:category", getProductsByCategory); // إضافة روت جديد للتصنيفات
 router.get("/:id", getProductById);
 

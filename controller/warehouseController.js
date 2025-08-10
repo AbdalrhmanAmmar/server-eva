@@ -1,5 +1,7 @@
 import { catchAsyncError } from '../middleware/catchAsyncError.js';
 import Warehouse from "../models/warehouseModel.js"
+import mongoose from "mongoose";
+
 
 export const addWarehouse = catchAsyncError(async (req, res) => {
   const {
@@ -8,10 +10,12 @@ export const addWarehouse = catchAsyncError(async (req, res) => {
     city,
     district,
     street,
+    phoneNum,
+    Buildingnumber,
     isActive,
   } = req.body;
 
-  if (!name || !country || !city || !district || !street) {
+  if (!name || !country || !city || !district || !street || !phoneNum || !Buildingnumber) {
     return res.status(400).json({
       success: false,
       message: 'يرجى تعبئة جميع الحقول المطلوبة',
@@ -24,6 +28,8 @@ export const addWarehouse = catchAsyncError(async (req, res) => {
     city,
     district,
     street,
+    phoneNum,
+    Buildingnumber,
     isActive: isActive ?? true,
     
   });
@@ -102,5 +108,31 @@ export const deleteWarehouse = catchAsyncError(async (req, res) => {
   res.status(200).json({
     success: true,
     message: 'تم حذف المخزن بنجاح',
+  });
+});
+
+export const getWarehouseById = catchAsyncError(async (req, res) => {
+  const { id } = req.params;
+
+  // التحقق من أن المعرف صالح
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({
+      success: false,
+      message: 'معرّف المخزن غير صالح',
+    });
+  }
+
+  const warehouse = await Warehouse.findById(id);
+
+  if (!warehouse) {
+    return res.status(404).json({
+      success: false,
+      message: 'لم يتم العثور على المخزن',
+    });
+  }
+
+  res.status(200).json({
+    success: true,
+    warehouse,
   });
 });

@@ -31,6 +31,17 @@ const warehouseSchema = new mongoose.Schema(
       required: [true, 'الشارع مطلوب'],
       trim: true,
     },
+    phoneNum:{
+      type:String,
+      require:[true,"رقم الهاتف مطلوب"],
+      trim:true,
+    },
+    Buildingnumber:{
+          type:String,
+      require:[true,"رقم المبنى مطلوب"],
+      trim:true,
+
+    },
     isActive: {
       type: Boolean,
       default: true,
@@ -51,6 +62,6 @@ warehouseSchema.pre('validate', async function (next) {
   next();
 });
 
-const Warehouse = mongoose.model('Warehouse', warehouseSchema);
+const Warehouse = mongoose.models.Warehouse || mongoose.model("Warehouse", warehouseSchema);
 
 export default Warehouse;

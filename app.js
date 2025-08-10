@@ -11,11 +11,12 @@ import adminRoutes from "./routes/adminRoutes.js";
 import serviceRoutes from "./routes/serviceRoutes.js";
 import warehouseRoute from "./routes/warehouseRoute.js";
 import inventoryRoutes from "./routes/inventoryRoutes.js";
-import inventoryItemRoute from "./routes/inventoryItemRoutes.js";
+import FormService from "./routes/FormService.js";
 
 import { errorMiddleware } from "./middleware/error.js";
 import { connection } from "./database/DbConnection.js";
 import path from "path";
+import ServiceFormRoutes from "./routes/ServiceFormRoutes.js"; // Import the new route
 
 config({ path: "./config.env" });
 
@@ -54,7 +55,8 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/services", serviceRoutes);
 app.use("/api/warehouses", warehouseRoute);
 app.use("/api/inventories", inventoryRoutes);
-app.use('/api/inventory-items', inventoryItemRoute);
+app.use("/api/Form", FormService); // Add FormService route
+app.use("/api/FormService", ServiceFormRoutes); // Add ServiceFormRoutes
 
 
 
