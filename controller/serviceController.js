@@ -94,3 +94,5 @@ export const deleteService = catchAsyncError(async (req, res, next) => {
     message: "تم حذف الخدمة بنجاح",
   });
 });
+
+// جلب الخدمات مع إمكانية التصفية والترتيب والترقيم

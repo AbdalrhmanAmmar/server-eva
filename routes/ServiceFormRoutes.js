@@ -1,10 +1,10 @@
 import express from 'express';
-import  {createSafetyRequest}  from '../controller/ServiceFormController.js';
-import { isAuthenticated } from '../middleware/auth.js';
+import  {createSafetyRequest, getServices}  from '../controller/ServiceFormController.js';
 
 
 const router = express.Router();
 
 router.post("/" ,createSafetyRequest)
+router.get("/" ,getServices)
 
 export default router;

@@ -6,6 +6,12 @@ const SafetyRequestSchema = new mongoose.Schema({
   //   ref: 'User',
   //   required: true,
   // },
+  nameService:{
+        type: String,
+    required: true,
+    trim: true
+
+  },
   interiorNumber: {
     type: String,
     required: true,

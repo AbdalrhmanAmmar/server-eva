@@ -24,7 +24,7 @@ config({ path: "./config.env" });
 export const app = express();
 
 app.use(cors({
-  origin: ["http://localhost:3000" , "https://evasaudi.com"],
+  origin: ["http://localhost:3000" , "https://evasaudi.com" , "https://www.evasaudi.com", "http://localhost:5173" , "https://eva-dashboard-navy.vercel.app"],
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
   credentials: true, 
 
