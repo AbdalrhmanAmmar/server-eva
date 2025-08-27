@@ -88,46 +88,54 @@ export const sendOTP = catchAsyncError(async (req, res, next) => {
     return next(new ErrorHandler("Invalid phone number.", 400));
   }
 
-  // تحقق هل الرقم مسجل ومفعل بالفعل
-  const existingUser = await User.findOne({ phone, accountVerified: true });
-  if (existingUser) {
-    return next(new ErrorHandler("Phone number already in use.", 400));
-  }
+  // 🔎 تحقق: هل الرقم موجود؟
+  let user = await User.findOne({ phone });
 
-  // ابحث عن مستخدم غير مفعل بنفس الرقم (حاول إعادة الإرسال)
-  let user = await User.findOne({ phone, accountVerified: false });
-
-  if (!user) {
-    // إنشاء مستخدم جديد (بدون اسم وكلمة مرور بعد)
+  if (user) {
+    if (user.accountVerified) {
+      // لو الرقم مفعل بالفعل → منع التسجيل
+      return next(new ErrorHandler("Phone number already in use.", 400));
+    }
+    // لو لسه مش مفعل → نعيد إرسال OTP
+  } else {
+    // لو مستخدم جديد → ننشئ حساب مبدئي
     user = new User({ phone });
   }
 
-  // توليد رمز تحقق جديد
+  // ✅ توليد رمز تحقق جديد
   const verificationCode = user.generateVerificationCode();
   await user.save({ validateBeforeSave: false });
 
-  // رسالة الـ SMS
-  const smsMessage = `رمز التحقق الخاص بك لدى شركة إيفاء العقارية هو: ${verificationCode}
-يُرجى عدم مشاركة هذا الرمز مع أي جهة.
-صلاحية الرمز: 5 دقائق.`;
+  // ✅ استخدام نص الرسالة الثابت كما طلبت
+  const messageText = `مرحبا بكم في ايفاء العقاريه هذا هو كود التفعيل الخاص بكم ارجو عدم مشاركه هذا الكود: ${verificationCode}`;
 
-  const encodedMessage = encodeURIComponent(smsMessage);
+  const encodedMessage = encodeURIComponent(messageText);
   const smsURL = `https://www.dreams.sa/index.php/api/sendsms/?user=Eva_RealEstate&secret_key=${process.env.DREAMS_SECRET_KEY}&sender=Eva%20Aqar&to=${phone}&message=${encodedMessage}`;
 
   try {
-    await axios.get(smsURL);
-res.status(200).json({
-  success: true,
-  message: `Verification SMS sent to ${phone}`,
-  data: {
-    otpId: user._id.toString(),                  // معرف المستخدم كـ OTP ID
-    expiresAt: user.verificationCodeExpire,     // وقت انتهاء صلاحية رمز التحقق
-  },
-});
+    // أضف console.log لرؤية الرابط الذي يتم إرساله
+    console.log('📤 SMS URL:', smsURL);
+    
+    const response = await axios.get(smsURL);
+    
+    // أضف تحقق من الاستجابة
+    console.log('📩 SMS API Response:', response.data);
+    
+    res.status(200).json({
+      success: true,
+      message: `Verification SMS sent to ${phone}`,
+      data: {
+        otpId: user._id.toString(),
+        expiresAt: user.verificationCodeExpire,
+        verificationCode: verificationCode // لأغراض الاختبار فقط
+      },
+    });
   } catch (err) {
+    console.error('❌ SMS Error:', err.response?.data || err.message);
     return next(new ErrorHandler("Failed to send verification SMS.", 500));
   }
 });
+
 
 // التحقق من OTP واستكمال التسجيل (خطوة 2)
 export const verifyOTPAndCompleteRegistration = catchAsyncError(async (req, res, next) => {

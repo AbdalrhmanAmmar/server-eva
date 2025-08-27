@@ -6,7 +6,6 @@ import cors from "cors";
 import userRoutes from "./routes/userRoutes.js";
 import productRoutes from "./routes/productRoutes.js";
 import pointsPackageRoutes from "./routes/pointsPackageRoutes.js";
-import reviewRoutes from "./routes/reviewRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import serviceRoutes from "./routes/serviceRoutes.js";
 import warehouseRoute from "./routes/warehouseRoute.js";
@@ -17,6 +16,11 @@ import { errorMiddleware } from "./middleware/error.js";
 import { connection } from "./database/DbConnection.js";
 import path from "path";
 import ServiceFormRoutes from "./routes/ServiceFormRoutes.js"; // Import the new route
+import engineeringPlanRoutes from "./routes/servicesformRoutes/engineeringPlanRoutes.js"; // Import the new route
+import rehabilitationRoutes from "./routes/servicesformRoutes/rehabilitationRoutes.js"; // Import the new route
+import safteyPlanRoutes from "./routes/servicesformRoutes/safteyPlanRoutes.js"; // Import the new route
+import MaintenanceContractRoutes from "./routes/servicesformRoutes/MaintenanceContractRoutes.js"; // Import the new route
+import SafetySystemsInstallationRoutes from "./routes/servicesformRoutes/SafetySystemsInstallationRoutes.js"; // Import the new route
 
 config({ path: "./config.env" });
 
@@ -30,7 +34,7 @@ app.use(cors({
 
 }));
 
-app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
 app.get("/cors-test", (req, res) => {
   res.json({ message: "CORS working ✅" });
@@ -56,6 +60,13 @@ app.use("/api/warehouses", warehouseRoute);
 app.use("/api/inventories", inventoryRoutes);
 app.use("/api/Form", FormService); // Add FormService route
 app.use("/api/FormService", ServiceFormRoutes); // Add ServiceFormRoutes
+// app.use("/api/smsTemplate", smsTemplateRoutes);
+app.use("/api/engineeringPlanForm", engineeringPlanRoutes);
+app.use("/api/rehabilitationRoutes", rehabilitationRoutes);
+app.use("/api/safteyPlan", safteyPlanRoutes);
+app.use("/api/MaintenanceContract", MaintenanceContractRoutes);
+app.use("/api/SafetySystemsInstallation", SafetySystemsInstallationRoutes);
+
 
 
 

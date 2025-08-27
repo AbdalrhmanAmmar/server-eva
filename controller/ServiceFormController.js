@@ -28,6 +28,7 @@ export const createSafetyRequest = catchAsyncError(async (req, res) => {
     'signName',
     'buildingArea',
     'mobile',
+    'clientName',
     'extinguishersCount',
     'smokeDetectorsCount',
     'emergencyLightsCount'
@@ -128,5 +129,58 @@ export const getServices = catchAsyncError(async (req, res, next) => {
     success: true,
     results: services.length,
     data: services,
+  });
+});
+
+// Update safety request status
+export const updateSafetyRequestStatus = catchAsyncError(async (req, res) => {
+  const { id } = req.params; 
+  const { status } = req.body;
+
+  // السماح فقط بالقيمتين
+  if (!['pending', 'completed'].includes(status)) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid status value. Allowed: 'pending' or 'completed'."
+    });
+  }
+
+  const updatedRequest = await ServiceFormModel.findByIdAndUpdate(
+    id,
+    { status },
+    { new: true, runValidators: true }
+  );
+
+  if (!updatedRequest) {
+    return res.status(404).json({
+      success: false,
+      message: 'Request not found'
+    });
+  }
+
+  res.status(200).json({
+    success: true,
+    message: 'Status updated successfully',
+    data: updatedRequest
+  });
+});
+
+
+// ✅ Get safety request by ID
+export const getSafetyRequestById = catchAsyncError(async (req, res) => {
+  const { id } = req.params;
+
+  const request = await ServiceFormModel.findById(id);
+
+  if (!request) {
+    return res.status(404).json({
+      success: false,
+      message: 'Request not found',
+    });
+  }
+
+  res.status(200).json({
+    success: true,
+    data: request,
   });
 });

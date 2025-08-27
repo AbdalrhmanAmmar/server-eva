@@ -17,7 +17,7 @@ export const CreateForm=catchAsyncError(async (req, res, next) => {
 })
 
 export const getAllForms = catchAsyncError(async (req, res, next) => {
-    const forms = await FormModel.find().sort({ OrderForm: 1 });
+    const forms = await FormModel.find().sort({ OrderForm: -1 });
 
     res.status(200).json({
         success: true,

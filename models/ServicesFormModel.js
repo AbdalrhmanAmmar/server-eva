@@ -60,6 +60,11 @@ const SafetyRequestSchema = new mongoose.Schema({
     type: Number,  // تغيير من String إلى Number
     required: true
   },
+  clientName:{
+    type:String,
+    required:true,
+    trim:true
+  },
   mobile: {
     type: String,
     required: true,
@@ -79,7 +84,7 @@ const SafetyRequestSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['pending', 'paid', 'approved', 'rejected'],
+    enum: ['pending', 'completed'],
     default: 'pending'
   }
 }, { timestamps: true })

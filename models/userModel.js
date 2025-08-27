@@ -47,6 +47,7 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: [false, "Email is required"],
     unique: true,
+    sparse: true,
   },
   emailVerificationCode: Number,
 emailVerificationCodeExpire: Date,
@@ -179,9 +180,9 @@ userSchema.methods.comparePassword = async function (enteredPassword) {
 
 // ✅ توليد كود تحقق (OTP)
 userSchema.methods.generateVerificationCode = function () {
-  const otp = 123456; // يمكنك تغييره لاحقًا
+ const otp = Math.floor(100000 + Math.random() * 900000);
   this.verificationCode = otp;
-  this.verificationCodeExpire = Date.now() + 5 * 60 * 1000;
+    this.verificationCodeExpire = Date.now() + 5 * 60 * 1000;
   return otp;
 };
 

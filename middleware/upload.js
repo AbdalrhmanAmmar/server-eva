@@ -1,36 +1,31 @@
 import multer from "multer";
 import path from "path";
+import fs from "fs";
 
-// مكان حفظ الصور داخل مجلد uploads/
+// تحديد مجلد الرفع
+const uploadDir = path.join("uploads", "safety-systems-installation");
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, "uploads/"); // تأكد أن المجلد موجود في مشروعك
+    cb(null, uploadDir);
   },
   filename: function (req, file, cb) {
-    // اسم الملف + تاريخ + امتداد
-    const ext = path.extname(file.originalname);
-    const filename = file.fieldname + "-" + Date.now() + ext;
+    const ext = path.extname(file.originalname).toLowerCase();
+    const filename = `${file.fieldname}-${Date.now()}${ext}`;
     cb(null, filename);
   },
 });
 
-// فلتر للتحقق من نوع الملفات (صورة فقط)
-// ✅ السماح بصور و PDF
+// السماح بكل الامتدادات مؤقتًا
 const fileFilter = (req, file, cb) => {
-  const allowedTypes = /jpeg|jpg|png|gif|pdf/;
-  const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-  const mimetype = allowedTypes.test(file.mimetype);
-
-  if (extname && mimetype) {
-    cb(null, true);
-  } else {
-    cb(new Error("Only images and PDF files are allowed"));
-  }
+  cb(null, true); 
 };
-
 
 export const upload = multer({
   storage,
   fileFilter,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5 ميجابايت كحد أقصى
+  limits: { fileSize: 20 * 1024 * 1024 }, // رفعت الحد لـ 20MB مؤقتًا
 });

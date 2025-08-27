@@ -20,8 +20,13 @@ const emailModalSchema = new mongoose.Schema(
         OrderForm: {
             type: Number,
             default: 0, 
-        }
+        },
+        
+    },
+    {
+         timestamps: true,
     }
+    
 );
 
 // Middleware قبل الحفظ
