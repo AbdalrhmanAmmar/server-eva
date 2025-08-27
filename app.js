@@ -60,7 +60,6 @@ app.use("/api/warehouses", warehouseRoute);
 app.use("/api/inventories", inventoryRoutes);
 app.use("/api/Form", FormService); // Add FormService route
 app.use("/api/FormService", ServiceFormRoutes); // Add ServiceFormRoutes
-// app.use("/api/smsTemplate", smsTemplateRoutes);
 app.use("/api/engineeringPlanForm", engineeringPlanRoutes);
 app.use("/api/rehabilitationRoutes", rehabilitationRoutes);
 app.use("/api/safteyPlan", safteyPlanRoutes);
