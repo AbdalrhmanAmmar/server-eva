@@ -12,11 +12,11 @@ export const getUserDetails = catchAsyncError(async (req, res, next) => {
   const user = await User.findById(userId).select("-password");
   if (!user) return next(new ErrorHandler("User not found", 404));
 
-  // جلب المنتجات التي اشتراها (افترض أن لديك حقل `boughtBy` في المنتج)
+  // جلب المنتجات التي اشتراها
   const products = await Product.find({ boughtBy: userId });
 
   // جلب المراجعات التي كتبها
-  consts = await review.find({ user: userId }).populate("product", "name");
+  const reviews = await review.find({ user: userId }).populate("product", "name");
 
   res.status(200).json({
     success: true,

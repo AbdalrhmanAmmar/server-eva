@@ -10,6 +10,7 @@ import {
   verifyOTPOnly,
   updateUserProfileAfterLogin,
   verifyEmailCode,
+  verifyResetOTP,
 } from "../controller/userController.js";
 import { isAuthenticated } from "../middleware/auth.js";
 import { upload } from "../middleware/upload.js";
@@ -32,6 +33,7 @@ router.post("/logout",isAuthenticated,logout);
 // استعادة كلمة المرور
 router.post("/forgot-password", forgotPassword);
 router.post("/reset-password", resetPassword);
+router.post("/verify-reset-otp", verifyResetOTP);
 
 // الحصول على بيانات المستخدم الحالي (بعد التوثيق)
 router.get("/me", isAuthenticated, getUser);
@@ -46,7 +48,7 @@ router.put(
     { name: "taxFile", maxCount: 1 },
     { name: "nationalAddressFile", maxCount: 1 },
   ]),
-  isAuthenticated,
+ 
   updateUserProfileAfterLogin
 );
 

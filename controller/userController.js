@@ -17,7 +17,7 @@ export const forgotPassword = catchAsyncError(async (req, res, next) => {
     return next(new ErrorHandler("Phone number is required", 400));
   }
 
-const user = await User.findOne({ phone });
+  const user = await User.findOne({ phone });
   if (!user) {
     return next(new ErrorHandler("User not found", 404));
   }
@@ -25,10 +25,7 @@ const user = await User.findOne({ phone });
   const resetToken = user.generateResetPasswordToken();
   await user.save({ validateBeforeSave: false });
 
-  const smsMessage = `لقد تم طلب إعادة تعيين كلمة المرور لحسابك لدى شركة إيفاء العقارية.
-رمز التحقق هو: ${resetToken}
-أدخل الرمز خلال 5 دقائق لإكمال العملية.
-إذا لم تطلب ذلك، تجاهل هذه الرسالة.`;
+  const smsMessage = `رمز إعادة تعين كلمة المرور الخاصة بحسابك علي إيفاء العقارية هو ${resetToken} والذي سيكون صالح لمدة ٣ دقائق`;
 
   const encodedMessage = encodeURIComponent(smsMessage);
   const smsURL = `https://www.dreams.sa/index.php/api/sendsms/?user=Eva_RealEstate&secret_key=${process.env.DREAMS_SECRET_KEY}&sender=Eva%20Aqar&to=${phone}&message=${encodedMessage}`;
@@ -38,6 +35,7 @@ const user = await User.findOne({ phone });
     res.status(200).json({
       success: true,
       message: `Reset code sent to ${phone}`,
+      otpId: user._id.toString() // إضافة otpId للاستجابة
     });
   } catch (err) {
     user.resetPasswordToken = undefined;
@@ -46,7 +44,6 @@ const user = await User.findOne({ phone });
     return next(new ErrorHandler("Failed to send SMS", 500));
   }
 });
-
 
 export const resetPassword = catchAsyncError(async (req, res, next) => {
   const { phone, token, newPassword } = req.body;
@@ -308,6 +305,42 @@ export const getUser = catchAsyncError(async (req, res, next) => {
   });
 });
 
+export const verifyResetOTP = catchAsyncError(async (req, res, next) => {
+  const { otpId, otp, phone } = req.body;
+
+  if (!otpId || !otp || !phone) {
+    return next(new ErrorHandler("All fields are required", 400));
+  }
+
+  const hashedToken = crypto.createHash("sha256").update(otp).digest("hex");
+
+  const user = await User.findOne({
+    _id: otpId,
+    phone,
+    resetPasswordToken: hashedToken,
+    resetPasswordExpire: { $gt: Date.now() },
+  });
+
+  if (!user) {
+    return next(new ErrorHandler("Invalid or expired OTP", 400));
+  }
+
+  // إنشاء توكن جديد فريد لإعادة التعيين
+  const newResetToken = crypto.randomBytes(20).toString('hex');
+  const hashedResetToken = crypto.createHash("sha256").update(newResetToken).digest("hex");
+
+  // حفظ التوكن الجديد في قاعدة البيانات
+  user.resetPasswordToken = hashedResetToken;
+  user.resetPasswordExpire = Date.now() + 15 * 60 * 1000; // 15 دقيقة
+  await user.save();
+
+  res.status(200).json({
+    success: true,
+    message: "OTP verified successfully",
+    resetToken: newResetToken, // إرجاع التوكن الجديد (غير مشفر)
+  });
+});
+
 export const getAllUsers = catchAsyncError(async (req, res, next) => {
   const users = await User.find().select("-password"); // بدون كلمات مرور
 
@@ -343,12 +376,25 @@ export const updateUserProfileAfterLogin = catchAsyncError(async (req, res, next
   console.log("📥 البيانات الواردة:", req.body);
   console.log("📁 الملفات المرفوعة:", req.files);
 
-  // ✅ التحقق من تغيير البريد الإلكتروني وتوليد كود
-  if (email && email !== user.email) {
-    const code = 123456; 
-    console.log("🔵 سيتم حفظ الإيميل:", email);
-console.log("🟢 كود التحقق:", code);
+  // ✅ التحقق من حالة pending - السماح فقط بتعديل البريد الإلكتروني
+  if (user.verificationStatus === "pending") {
+    const allowedUpdates = ['email'];
+    const requestKeys = Object.keys(req.body);
+    const hasFiles = req.files && Object.keys(req.files).length > 0;
+    
+    // إذا كان هناك أي تحديث غير البريد الإلكتروني أو ملفات
+    const hasDisallowedUpdate = requestKeys.some(key => !allowedUpdates.includes(key)) || hasFiles;
+    
+    if (hasDisallowedUpdate) {
+      return next(new ErrorHandler("❌ لا يمكن تعديل البيانات أثناء انتظار التحقق، مسموح فقط بتعديل البريد الإلكتروني", 403));
+    }
+  }
 
+  // ✅ التحقق من تغيير البريد الإلكتروني
+  if (email && email !== user.email && email !== user.pendingEmail) {
+    const code = Math.floor(100000 + Math.random() * 900000); // كود عشوائي
+    console.log("🔵 سيتم حفظ الإيميل:", email);
+    console.log("🟢 كود التحقق:", code);
 
     user.pendingEmail = email;
     user.emailVerificationCode = code;
@@ -359,10 +405,10 @@ console.log("🟢 كود التحقق:", code);
     console.log("📨 تم إرسال كود التحقق:", code);
   }
 
-  // ✅ تحديث بيانات عامة
+  // ✅ تحديث البيانات العامة
   if (gender) user.gender = gender;
 
-  // ✅ التحقق من نوع الكيان (لا يمكن الرجوع لنوع أقل)
+  // ✅ التحقق من نوع الكيان
   if (entityType && entityType !== user.entityType) {
     const hierarchy = { individual: 1, organization: 2, company: 3 };
     if (hierarchy[entityType] < hierarchy[user.entityType]) {
@@ -374,20 +420,13 @@ console.log("🟢 كود التحقق:", code);
 
   // ✅ معالجة الكيانات غير الفردية
   if (user.entityType !== "individual") {
-    // ❗ لا تمنع تعديل الإيميل في حالة pending
-    const isEmailOnlyUpdate = email && Object.keys(req.body).length === 1;
-
-    if (user.verificationStatus === "pending" && !isEmailOnlyUpdate) {
-      return next(new ErrorHandler("❌ لا يمكن تعديل البيانات أثناء انتظار التحقق", 403));
-    }
-
     const sensitiveFieldsChanged = (
-      entityName !== user.entityName ||
-      accountRole !== user.accountRole ||
-      jobTitle !== user.jobTitle ||
-      commercialRecordNumber !== user.commercialRecordNumber ||
-      taxNumber !== user.taxNumber ||
-      nationalAddressNumber !== user.nationalAddressNumber ||
+      (entityName && entityName !== user.entityName) ||
+      (accountRole && accountRole !== user.accountRole) ||
+      (jobTitle && jobTitle !== user.jobTitle) ||
+      (commercialRecordNumber && commercialRecordNumber !== user.commercialRecordNumber) ||
+      (taxNumber && taxNumber !== user.taxNumber) ||
+      (nationalAddressNumber && nationalAddressNumber !== user.nationalAddressNumber) ||
       req.files?.commercialRecordFile?.[0] ||
       req.files?.taxFile?.[0] ||
       req.files?.nationalAddressFile?.[0]
@@ -404,9 +443,16 @@ console.log("🟢 كود التحقق:", code);
     if (taxNumber) user.taxNumber = taxNumber;
     if (nationalAddressNumber) user.nationalAddressNumber = nationalAddressNumber;
 
-    // ✅ رفع ملفات
+    // ✅ رفع ملفات مع التحقق
     const handleFileUpload = (file, fieldName) => {
       if (file?.[0]) {
+        // حذف الملف القديم إذا موجود
+        if (user[fieldName]) {
+          const oldFilePath = path.join(__dirname, '..', '..', user[fieldName]);
+          if (fs.existsSync(oldFilePath)) {
+            fs.unlinkSync(oldFilePath);
+          }
+        }
         user[fieldName] = `/uploads/${file[0].filename}`;
         console.log(`✅ ${fieldName} محفوظ:`, user[fieldName]);
       }

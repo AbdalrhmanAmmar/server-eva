@@ -188,12 +188,12 @@ userSchema.methods.generateVerificationCode = function () {
 
 // ✅ كود إعادة تعيين كلمة المرور
 userSchema.methods.generateResetPasswordToken = function () {
-  const otp = Math.floor(100000 + Math.random() * 900000);
+  const otp = 123456;
   this.resetPasswordToken = crypto
     .createHash("sha256")
     .update(otp.toString())
     .digest("hex");
-  this.resetPasswordExpire = Date.now() + 5 * 60 * 1000;
+  this.resetPasswordExpire = Date.now() + 3 * 60 * 1000;
   return otp;
 };
 

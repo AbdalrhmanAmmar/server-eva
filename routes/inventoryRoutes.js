@@ -4,9 +4,9 @@ import { isAuthenticated } from "../middleware/auth.js";
 
 const router = express.Router();
 
-router.post("/",isAuthenticated,createInventoryCount); 
-router.get("/",isAuthenticated,getInventoryCountsByUser); 
-router.get("/:id", isAuthenticated, getInventoryCountById);
+router.post("/",createInventoryCount); 
+router.get("/",getInventoryCountsByUser); 
+router.get("/:id", getInventoryCountById);
 
 
 export default router;
